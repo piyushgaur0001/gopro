@@ -5,6 +5,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -40,6 +41,32 @@ func ParseTargetSizeKB(raw string) (int64, bool, error) {
 		return 0, false, errors.New("target_size_kb must be greater than 0")
 	}
 	return sizeKB * 1024, true, nil
+}
+
+func ParseTargetSize(rawSize, rawUnit, legacyKB string) (int64, bool, error) {
+	if legacyKB != "" {
+		return ParseTargetSizeKB(legacyKB)
+	}
+	if rawSize == "" {
+		return 0, false, nil
+	}
+
+	size, err := strconv.ParseFloat(rawSize, 64)
+	if err != nil {
+		return 0, false, errors.New("target_size must be a number")
+	}
+	if size <= 0 {
+		return 0, false, errors.New("target_size must be greater than 0")
+	}
+
+	switch strings.ToLower(rawUnit) {
+	case "", "kb":
+		return int64(size * 1024), true, nil
+	case "mb":
+		return int64(size * 1024 * 1024), true, nil
+	default:
+		return 0, false, errors.New("target_unit must be kb or mb")
+	}
 }
 
 func DetectImageType(data []byte) (contentType, extension string, ok bool) {

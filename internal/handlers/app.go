@@ -27,6 +27,7 @@ type compressResponse struct {
 	CompressionRatio float64 `json:"compression_ratio"`
 	DownloadURL      string  `json:"download_url"`
 	ContentType      string  `json:"content_type"`
+	Mode             string  `json:"mode"`
 	QualityUsed      int     `json:"quality_used"`
 	TargetSize       int64   `json:"target_size,omitempty"`
 }
@@ -59,16 +60,36 @@ func (a *App) CompressImage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	mode := r.URL.Query().Get("mode")
+	if mode == "" {
+		mode = "quality"
+	}
+	if mode != "quality" && mode != "size" {
+		utils.WriteError(w, http.StatusBadRequest, "mode must be quality or size")
+		return
+	}
+
 	quality, err := utils.ParseQuality(r.URL.Query().Get("quality"), a.cfg.DefaultQuality)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	targetBytes, _, err := utils.ParseTargetSizeKB(r.URL.Query().Get("target_size_kb"))
+	targetBytes, targetSet, err := utils.ParseTargetSize(
+		r.URL.Query().Get("target_size"),
+		r.URL.Query().Get("target_unit"),
+		r.URL.Query().Get("target_size_kb"),
+	)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err.Error())
 		return
+	}
+	if mode == "size" && !targetSet {
+		utils.WriteError(w, http.StatusBadRequest, "target_size is required when mode is size")
+		return
+	}
+	if mode == "quality" {
+		targetBytes = 0
 	}
 
 	data, err := io.ReadAll(file)
@@ -133,6 +154,7 @@ func (a *App) CompressImage(w http.ResponseWriter, r *http.Request) {
 		CompressionRatio: utils.CompressionRatio(originalSize, compressedSize),
 		DownloadURL:      "/api/v1/downloads/" + outputFilename,
 		ContentType:      contentType,
+		Mode:             mode,
 		QualityUsed:      result.QualityUsed,
 		TargetSize:       result.TargetBytes,
 	})

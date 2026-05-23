@@ -58,11 +58,14 @@
 
       input[type="file"],
       input[type="range"],
-      input[type="number"] {
+      input[type="number"],
+      select {
         width: 100%;
       }
 
-      input[type="number"] {
+      input[type="number"],
+      select {
+        background: #ffffff;
         border: 1px solid #c8d3d9;
         border-radius: 6px;
         font: inherit;
@@ -83,6 +86,12 @@
         grid-template-columns: 1fr auto;
         gap: 14px;
         align-items: center;
+      }
+
+      .size-control {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 110px;
+        gap: 10px;
       }
 
       .mode {
@@ -194,6 +203,10 @@
           grid-template-columns: 1fr;
         }
 
+        .size-control {
+          grid-template-columns: 1fr;
+        }
+
         .preview img {
           width: 100%;
           max-height: 260px;
@@ -233,8 +246,14 @@
         </label>
 
         <label id="size-field" class="field">
-          Target size in KB
-          <input id="target-size" name="target-size" type="number" min="1" step="1" value="500" />
+          Target size
+          <span class="size-control">
+            <input id="target-size" name="target-size" type="number" min="1" step="0.1" value="500" />
+            <select id="target-unit" name="target-unit" aria-label="Target size unit">
+              <option value="kb" selected>KB</option>
+              <option value="mb">MB</option>
+            </select>
+          </span>
         </label>
 
         <button id="submit" type="submit">Compress image</button>
@@ -274,6 +293,7 @@
       const qualityValue = document.querySelector("#quality-value");
       const sizeField = document.querySelector("#size-field");
       const targetSizeInput = document.querySelector("#target-size");
+      const targetUnitInput = document.querySelector("#target-unit");
       const submit = document.querySelector("#submit");
       const preview = document.querySelector("#preview");
       const previewImage = document.querySelector("#preview-image");
@@ -325,11 +345,14 @@
 
         if (selectedMode() === "size") {
           if (!targetSizeInput.value || Number(targetSizeInput.value) <= 0) {
-            showError("Enter a target size greater than 0 KB.");
+            showError("Enter a target size greater than 0.");
             return;
           }
-          params.set("target_size_kb", targetSizeInput.value);
+          params.set("mode", "size");
+          params.set("target_size", targetSizeInput.value);
+          params.set("target_unit", targetUnitInput.value);
         } else {
+          params.set("mode", "quality");
           params.set("quality", qualityInput.value);
         }
 

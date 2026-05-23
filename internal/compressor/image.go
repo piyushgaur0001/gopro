@@ -81,23 +81,52 @@ func CompressImage(input []byte, options ImageOptions) (ImageResult, error) {
 }
 
 func encodeJPEGForTarget(img image.Image, targetBytes int64) ([]byte, int, error) {
+	current := img
+	var smallest []byte
+	smallestQuality := 1
+
+	for {
+		encoded, quality, ok, err := encodeJPEGQualityForTarget(current, targetBytes)
+		if err != nil {
+			return nil, 0, err
+		}
+		if ok {
+			return encoded, quality, nil
+		}
+		if smallest == nil || len(encoded) < len(smallest) {
+			smallest = encoded
+			smallestQuality = 1
+		}
+
+		bounds := current.Bounds()
+		width := bounds.Dx()
+		height := bounds.Dy()
+		if width <= 1 && height <= 1 {
+			return smallest, smallestQuality, nil
+		}
+
+		nextWidth := scaledDownDimension(width)
+		nextHeight := scaledDownDimension(height)
+		current = imaging.Resize(current, nextWidth, nextHeight, imaging.Lanczos)
+	}
+}
+
+func encodeJPEGQualityForTarget(img image.Image, targetBytes int64) ([]byte, int, bool, error) {
 	low := 1
 	high := 100
 	bestQuality := 1
 	var bestUnder []byte
 	var smallest []byte
-	smallestQuality := 1
 
 	for low <= high {
 		quality := (low + high) / 2
 		encoded, err := encodeJPEG(img, quality)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, false, err
 		}
 
 		if smallest == nil || len(encoded) < len(smallest) {
 			smallest = encoded
-			smallestQuality = quality
 		}
 
 		if int64(len(encoded)) <= targetBytes {
@@ -110,9 +139,9 @@ func encodeJPEGForTarget(img image.Image, targetBytes int64) ([]byte, int, error
 	}
 
 	if bestUnder != nil {
-		return bestUnder, bestQuality, nil
+		return bestUnder, bestQuality, true, nil
 	}
-	return smallest, smallestQuality, nil
+	return smallest, 1, false, nil
 }
 
 func encodeJPEG(img image.Image, quality int) ([]byte, error) {
@@ -121,4 +150,19 @@ func encodeJPEG(img image.Image, quality int) ([]byte, error) {
 		return nil, err
 	}
 	return out.Bytes(), nil
+}
+
+func scaledDownDimension(value int) int {
+	if value <= 1 {
+		return 1
+	}
+
+	next := int(float64(value) * 0.85)
+	if next >= value {
+		next = value - 1
+	}
+	if next < 1 {
+		return 1
+	}
+	return next
 }

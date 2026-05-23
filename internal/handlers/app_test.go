@@ -26,6 +26,7 @@ type compressResponse struct {
 	CompressionRatio float64 `json:"compression_ratio"`
 	DownloadURL      string  `json:"download_url"`
 	ContentType      string  `json:"content_type"`
+	Mode             string  `json:"mode"`
 	QualityUsed      int     `json:"quality_used"`
 	TargetSize       int64   `json:"target_size,omitempty"`
 }
@@ -141,7 +142,7 @@ func TestCompressImageRejectsBadQuality(t *testing.T) {
 func TestCompressImageAcceptsTargetSize(t *testing.T) {
 	server := newTestServer(t)
 
-	res := upload(t, server, "/api/v1/images/compress?target_size_kb=10", "photo.jpg", testJPEG(t))
+	res := upload(t, server, "/api/v1/images/compress?mode=size&target_size=10&target_unit=kb", "photo.jpg", testJPEG(t))
 	if res.Code != http.StatusCreated {
 		t.Fatalf("got status %d, want %d; body: %s", res.Code, http.StatusCreated, res.Body.String())
 	}
@@ -153,6 +154,9 @@ func TestCompressImageAcceptsTargetSize(t *testing.T) {
 	if payload.TargetSize != 10*1024 {
 		t.Fatalf("got target size %d, want %d", payload.TargetSize, 10*1024)
 	}
+	if payload.Mode != "size" {
+		t.Fatalf("got mode %q, want size", payload.Mode)
+	}
 	if payload.QualityUsed < 1 || payload.QualityUsed > 100 {
 		t.Fatalf("quality used %d is out of range", payload.QualityUsed)
 	}
@@ -161,7 +165,16 @@ func TestCompressImageAcceptsTargetSize(t *testing.T) {
 func TestCompressImageRejectsBadTargetSize(t *testing.T) {
 	server := newTestServer(t)
 
-	res := upload(t, server, "/api/v1/images/compress?target_size_kb=0", "photo.jpg", testJPEG(t))
+	res := upload(t, server, "/api/v1/images/compress?mode=size&target_size=0&target_unit=kb", "photo.jpg", testJPEG(t))
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("got status %d, want %d", res.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCompressImageRejectsSizeModeWithoutTarget(t *testing.T) {
+	server := newTestServer(t)
+
+	res := upload(t, server, "/api/v1/images/compress?mode=size", "photo.jpg", testJPEG(t))
 	if res.Code != http.StatusBadRequest {
 		t.Fatalf("got status %d, want %d", res.Code, http.StatusBadRequest)
 	}

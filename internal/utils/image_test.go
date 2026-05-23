@@ -82,6 +82,45 @@ func TestParseTargetSizeKB(t *testing.T) {
 	}
 }
 
+func TestParseTargetSize(t *testing.T) {
+	tests := []struct {
+		name     string
+		rawSize  string
+		rawUnit  string
+		legacyKB string
+		want     int64
+		wantSet  bool
+		wantErr  bool
+	}{
+		{name: "empty", wantSet: false},
+		{name: "kb", rawSize: "250", rawUnit: "kb", want: 250 * 1024, wantSet: true},
+		{name: "mb", rawSize: "1.5", rawUnit: "mb", want: int64(1.5 * 1024 * 1024), wantSet: true},
+		{name: "default unit kb", rawSize: "10", want: 10 * 1024, wantSet: true},
+		{name: "legacy kb", legacyKB: "12", want: 12 * 1024, wantSet: true},
+		{name: "bad unit", rawSize: "10", rawUnit: "gb", wantErr: true},
+		{name: "bad size", rawSize: "big", rawUnit: "mb", wantErr: true},
+		{name: "zero", rawSize: "0", rawUnit: "kb", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotSet, err := ParseTargetSize(tt.rawSize, tt.rawUnit, tt.legacyKB)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want || gotSet != tt.wantSet {
+				t.Fatalf("got (%d, %v), want (%d, %v)", got, gotSet, tt.want, tt.wantSet)
+			}
+		})
+	}
+}
+
 func TestDetectImageTypeRejectsUnknown(t *testing.T) {
 	_, _, ok := DetectImageType([]byte("plain text"))
 	if ok {

@@ -69,6 +69,19 @@ func TestCompressImageJPEGTargetSize(t *testing.T) {
 	}
 }
 
+func TestCompressImageJPEGTinyTargetResizes(t *testing.T) {
+	input := testJPEG(t, 1200, 800)
+
+	result, err := CompressImage(input, ImageOptions{Quality: 95, TargetBytes: 1024, MaxDimension: 2000})
+	if err != nil {
+		t.Fatalf("CompressImage returned error: %v", err)
+	}
+
+	if int64(len(result.Data)) > 1024 {
+		t.Fatalf("got %d bytes, want at most 1024 bytes", len(result.Data))
+	}
+}
+
 func testJPEG(t *testing.T, width, height int) []byte {
 	t.Helper()
 
